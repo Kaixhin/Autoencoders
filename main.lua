@@ -22,7 +22,7 @@ cmd:option('-model', 'AE', 'Model: AE|SparseAE|CAE|DeepAE|ConvAE|UpconvAE|Denois
 cmd:option('-learningRate', 0.001, 'Learning rate')
 cmd:option('-epochs', 10, 'Training epochs')
 local opt = cmd:parse(arg)
-opt.batchSize = 600 -- Currently only set up for divisors of N
+opt.batchSize = 150 -- Currently only set up for divisors of N
 
 -- Create model
 local Model = require ('models/' .. opt.model)
