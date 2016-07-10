@@ -3,18 +3,27 @@ local mnist = require 'mnist'
 local optim = require 'optim'
 local gnuplot = require 'gnuplot'
 local image = require 'image'
+local cuda = pcall(require, 'cutorch') -- Use CUDA if available
+local hasCudnn, cudnn = pcall(require, 'cudnn') -- Use cuDNN if available
 
 -- Set up Torch
 print('Setting up')
 torch.setheaptracking(true)
 torch.setdefaulttensortype('torch.FloatTensor')
 torch.manualSeed(1)
-
+if cuda then
+  require 'cunn'
+  cutorch.manualSeed(torch.random())
+end
 
 -- Load MNIST data
 local XTrain = mnist.traindataset().data:float():div(255) -- Normalise to [0, 1]
 local XTest = mnist.testdataset().data:float():div(255)
 local N = XTrain:size(1)
+if cuda then
+  XTrain = XTrain:cuda()
+  XTest = XTest:cuda()
+end
 
 -- Choose model to train
 local cmd = torch.CmdLine()
@@ -27,12 +36,22 @@ opt.batchSize = 150 -- Currently only set up for divisors of N
 -- Create model
 local Model = require ('models/' .. opt.model)
 local autoencoder = Model:createAutoencoder(XTrain)
+if cuda then
+  autoencoder:cuda()
+  -- Use cuDNN if available
+  if hasCudnn then
+    cudnn.convert(autoencoder, cudnn)
+  end
+end
 
 -- Get parameters
 local theta, gradTheta = autoencoder:getParameters()
 
 -- Create loss
 local criterion = nn.BCECriterion()
+if cuda then
+  criterion:cuda()
+end
 
 -- Create optimiser function evaluation
 local x -- Minibatch
