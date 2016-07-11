@@ -29,13 +29,14 @@ end
 local cmd = torch.CmdLine()
 cmd:option('-model', 'AE', 'Model: AE|SparseAE|CAE|DeepAE|ConvAE|UpconvAE|DenoisingAE|Seq2SeqAE|VAE|AdvAE')
 cmd:option('-learningRate', 0.001, 'Learning rate')
-cmd:option('-epochs', 1, 'Training epochs')
+cmd:option('-epochs', 10, 'Training epochs')
 local opt = cmd:parse(arg)
 opt.batchSize = 150 -- Currently only set up for divisors of N
 
 -- Create model
 local Model = require ('models/' .. opt.model)
-local autoencoder = Model:createAutoencoder(XTrain)
+Model:createAutoencoder(XTrain)
+local autoencoder = Model.autoencoder
 if cuda then
   autoencoder:cuda()
   -- Use cuDNN if available
@@ -68,6 +69,17 @@ local feval = function(params)
   -- Backpropagation
   local gradLoss = criterion:backward(xHat, x)
   autoencoder:backward(x, gradLoss)
+
+  if opt.model == 'VAE' then
+    local encoder = Model.encoder
+    -- Optimize KL-Divergence between encoder output and prior N(0, 1)
+    local q = encoder.output
+    local std = torch.exp(q[2])
+    local KLLoss = -0.5 * torch.mean(1 + q[2] - torch.pow(q[2], 2) - std)
+    loss = loss + KLLoss
+    local gradKLLoss = {q[1], 0.5*(std - 1)}
+    encoder:backward(x, gradKLLoss)
+  end
 
   return loss, gradTheta
 end

@@ -31,8 +31,6 @@ function Model:createAutoencoder(X)
   self.autoencoder:add(nn.WhiteNoise(0, 0.5)) -- Add white noise to inputs during training
   self.autoencoder:add(self.encoder)
   self.autoencoder:add(self.decoder)
-
-  return self.autoencoder
 end
 
 return Model

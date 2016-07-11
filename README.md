@@ -5,7 +5,6 @@ This repository is a Torch version of [Building Autoencoders in Keras](http://bl
 
 - **AE**: Fully-connected autoencoder
 - **SparseAE**: Sparse autoencoder
-- ~~**CAE**: Contractive autoencoder *(bonus)*~~
 - **DeepAE**: Deep (fully-connected) autoencoder
 - **ConvAE**: Convolutional autoencoder
 - **UpconvAE**: Upconvolutional autoencoder - also known by [several other names](https://github.com/torch/nn/blob/master/doc/convolution.md#spatialfullconvolution) *(bonus)*

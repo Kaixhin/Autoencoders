@@ -30,8 +30,6 @@ function Model:createAutoencoder(X)
   self.autoencoder = nn.Sequential()
   self.autoencoder:add(self.encoder)
   self.autoencoder:add(self.decoder)
-
-  return self.autoencoder
 end
 
 return Model
