@@ -104,14 +104,9 @@ local feval = function(params)
     encoder:backward(x, gradKLLoss)
   elseif opt.model == 'AdvAE' then
     local encoder = Model.encoder
-    local real = torch.Tensor(opt.batchSize, Model.zSize):normal(0, 1)
-    local YReal = torch.ones(opt.batchSize)
-    local YFake = torch.zeros(opt.batchSize)
-    if cuda then
-      real = real:cuda()
-      YReal = YReal:cuda()
-      YFake = YFake:cuda()
-    end
+    local real = torch.Tensor(opt.batchSize, Model.zSize):normal(0, 1):typeAs(XTrain)
+    local YReal = torch.ones(opt.batchSize):typeAs(XTrain)
+    local YFake = torch.zeros(opt.batchSize):typeAs(XTrain)
 
     -- Train adversary on real sample ~ N(0, 1)
     local pred = adversary:forward(real)
@@ -200,4 +195,20 @@ end
 -- Plot reconstructions
 image.save('Reconstructions.png', torch.cat(image.toDisplayTensor(x, 2, 10), image.toDisplayTensor(xHat, 2, 10), 1))
 
+-- Plot samples
+if opt.model == 'VAE' or opt.model == 'AdvAE' then
+  local decoder = Model.decoder
+  local n = 15
+  local height, width = XTest:size(2), XTest:size(3)
+  local samples = torch.Tensor(n * height, n * width):typeAs(XTest)
+  local std = 1
 
+  -- Sample n points within [-14, 14] standard deviations of N(0, 1)
+  for i = 1, 15  do
+    for j = 1, 15 do
+      local sample = torch.Tensor({2 * i * std - 16 * std, 2 * j * std - 16 * std}):typeAs(XTest)
+      samples[{{(i-1) * height + 1, i * height}, {(j-1) * width + 1, j * height}}] = decoder:forward(sample)
+    end
+  end
+  image.save('Samples.png', samples)
+end
