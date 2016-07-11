@@ -29,7 +29,7 @@ end
 local cmd = torch.CmdLine()
 cmd:option('-model', 'AE', 'Model: AE|SparseAE|CAE|DeepAE|ConvAE|UpconvAE|DenoisingAE|Seq2SeqAE|VAE|AdvAE')
 cmd:option('-learningRate', 0.001, 'Learning rate')
-cmd:option('-epochs', 10, 'Training epochs')
+cmd:option('-epochs', 1, 'Training epochs')
 local opt = cmd:parse(arg)
 opt.batchSize = 150 -- Currently only set up for divisors of N
 
@@ -100,9 +100,17 @@ gnuplot.plotflush()
 
 -- Test
 print('Testing')
-autoencoder:evaluate()
 x = XTest:narrow(1, 1, 10)
-local xHat = autoencoder:forward(x)
+local xHat
+if opt.model == 'DenoisingAE' then
+  xHat = autoencoder:forward(x)
 
+  -- Extract noised version from denoising AE
+  local xNoise = autoencoder:findModules('nn.WhiteNoise')
+  x = xNoise[1].output
+else
+  autoencoder:evaluate()
+  xHat = autoencoder:forward(x)
+end
 -- Plot reconstructions
 image.save('Reconstructions.png', torch.cat(image.toDisplayTensor(x, 2, 10), image.toDisplayTensor(xHat, 2, 10), 1))
