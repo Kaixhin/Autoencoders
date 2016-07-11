@@ -27,7 +27,7 @@ end
 
 -- Choose model to train
 local cmd = torch.CmdLine()
-cmd:option('-model', 'AE', 'Model: AE|SparseAE|CAE|DeepAE|ConvAE|UpconvAE|DenoisingAE|Seq2SeqAE|VAE|AdvAE')
+cmd:option('-model', 'AE', 'Model: AE|SparseAE|DeepAE|ConvAE|UpconvAE|DenoisingAE|Seq2SeqAE|VAE|AdvAE')
 cmd:option('-learningRate', 0.001, 'Learning rate')
 cmd:option('-epochs', 10, 'Training epochs')
 local opt = cmd:parse(arg)
@@ -45,8 +45,25 @@ if cuda then
   end
 end
 
+-- Create adversary (if needed)
+local adversary, thetaAdv, gradThetaAdv, advLoss
+if opt.model == 'AdvAE' then
+  Model:createAdversary()
+  adversary = Model.adversary
+  if cuda then
+    adversary:cuda()
+    -- Use cuDNN if available
+    if hasCudnn then
+      cudnn.convert(adversary, cudnn)
+    end
+  end
+end
+
 -- Get parameters
 local theta, gradTheta = autoencoder:getParameters()
+if opt.model == 'AdvAE' then
+  thetaAdv, gradThetaAdv = adversary:getParameters()
+end
 
 -- Create loss
 local criterion = nn.BCECriterion()
@@ -62,7 +79,11 @@ local feval = function(params)
   end
   -- Zero gradients
   gradTheta:zero()
+  if opt.model == 'AdvAE' then
+    gradThetaAdv:zero()
+  end
 
+  -- Reconstruction phase
   -- Forward propagation
   local xHat = autoencoder:forward(x) -- Reconstruction
   local loss = criterion:forward(xHat, x)
@@ -70,6 +91,7 @@ local feval = function(params)
   local gradLoss = criterion:backward(xHat, x)
   autoencoder:backward(x, gradLoss)
 
+  -- Regularization phase
   if opt.model == 'VAE' then
     local encoder = Model.encoder
     -- Optimize KL-Divergence between encoder output and prior N(0, 1)
@@ -79,15 +101,54 @@ local feval = function(params)
     loss = loss + KLLoss
     local gradKLLoss = {q[1], 0.5*(std - 1)}
     encoder:backward(x, gradKLLoss)
+  elseif opt.model == 'AdvAE' then
+    local encoder = Model.encoder
+    local real = torch.Tensor(opt.batchSize, Model.zSize):normal(0, 1)
+    local YReal = torch.ones(opt.batchSize)
+    local YFake = torch.zeros(opt.batchSize)
+    if cuda then
+      real = real:cuda()
+      YReal = YReal:cuda()
+      YFake = YFake:cuda()
+    end
+
+    -- Train adversary on real sample ~ N(0, 1)
+    local pred = adversary:forward(real)
+    local lossReal = criterion:forward(pred, YReal)
+    local gradLossReal = criterion:backward(pred, YReal)
+    adversary:backward(real, gradLossReal)
+
+    -- Train adversary on fake sample ~ encoder
+    pred = adversary:forward(encoder.output)
+    local lossFake = criterion:forward(pred, YFake)
+    advLoss = lossReal + lossFake
+    local gradLossFake = criterion:backward(pred, YFake)
+    local gradFake = adversary:backward(encoder.output, gradLossFake)
+
+    -- Minimax on fake sample
+    local lossMinimax = criterion:forward(adversary.output, YReal)
+    loss = loss + lossMinimax
+    local gradLossMinimax = criterion:backward(adversary.output, YReal)
+    local gradMinimax = adversary:updateGradInput(encoder.output, gradLossMinimax) -- Do not calculate grad wrt adversary parameters
+    encoder:backward(x, gradMinimax)
   end
 
   return loss, gradTheta
+end
+
+local advFeval = function(params)
+  if thetaAdv ~= params then
+    thetaAdv:copy(params)
+  end
+
+  return advLoss, gradThetaAdv
 end
 
 -- Train
 print('Training')
 autoencoder:training()
 local optimParams = {learningRate = opt.learningRate}
+local advOptimParams = {learningRate = opt.learningRate}
 local __, loss
 local losses = {}
 
@@ -100,6 +161,11 @@ for epoch = 1, opt.epochs do
     -- Optimise
     __, loss = optim.adam(feval, theta, optimParams)
     losses[#losses + 1] = loss[1]
+
+    if opt.model == 'AdvAE' then
+      -- Train adversary
+      __, loss = optim.adam(advFeval, thetaAdv, advOptimParams)     
+    end
   end
 end
 

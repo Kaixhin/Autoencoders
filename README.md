@@ -1,7 +1,7 @@
 Autoencoders
 ============
 
-This repository is a Torch version of [Building Autoencoders in Keras](http://blog.keras.io/building-autoencoders-in-keras.html), but only containing code for reference - please refer to the original blog post for an explanation of autoencoders. The following models are implemented:
+This repository is a Torch version of [Building Autoencoders in Keras](http://blog.keras.io/building-autoencoders-in-keras.html), but only containing code for reference - please refer to the original blog post for an explanation of autoencoders. Training hyperparameters have not been adjusted. The following models are implemented:
 
 - **AE**: Fully-connected autoencoder
 - **SparseAE**: Sparse autoencoder
