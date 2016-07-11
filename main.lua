@@ -46,7 +46,7 @@ if cuda then
 end
 
 -- Create adversary (if needed)
-local adversary, thetaAdv, gradThetaAdv, advLoss
+local adversary
 if opt.model == 'AdvAE' then
   Model:createAdversary()
   adversary = Model.adversary
@@ -61,6 +61,7 @@ end
 
 -- Get parameters
 local theta, gradTheta = autoencoder:getParameters()
+local thetaAdv, gradThetaAdv
 if opt.model == 'AdvAE' then
   thetaAdv, gradThetaAdv = adversary:getParameters()
 end
@@ -150,7 +151,7 @@ autoencoder:training()
 local optimParams = {learningRate = opt.learningRate}
 local advOptimParams = {learningRate = opt.learningRate}
 local __, loss
-local losses = {}
+local losses, advLosses = {}, {}
 
 for epoch = 1, opt.epochs do
   print('Epoch ' .. epoch .. '/' .. opt.epochs)
@@ -162,16 +163,21 @@ for epoch = 1, opt.epochs do
     __, loss = optim.adam(feval, theta, optimParams)
     losses[#losses + 1] = loss[1]
 
+    -- Train adversary
     if opt.model == 'AdvAE' then
-      -- Train adversary
       __, loss = optim.adam(advFeval, thetaAdv, advOptimParams)     
+      advLosses[#advLosses + 1] = loss[1]
     end
   end
 end
 
--- Plot training curve
+-- Plot training curve(s)
+local plots = {{'Autoencoder', torch.linspace(1, #losses, #losses), torch.Tensor(losses), '-'}}
+if opt.model == 'AdvAE' then
+  plots[#plots + 1] = {'Adversary', torch.linspace(1, #advLosses, #advLosses), torch.Tensor(advLosses), '-'}
+end
 gnuplot.pngfigure('Training.png')
-gnuplot.plot('', torch.linspace(1, #losses, #losses), torch.Tensor(losses), '-')
+gnuplot.plot(table.unpack(plots))
 gnuplot.ylabel('Loss')
 gnuplot.xlabel('Batch #')
 gnuplot.plotflush()
@@ -190,5 +196,8 @@ else
   autoencoder:evaluate()
   xHat = autoencoder:forward(x)
 end
+
 -- Plot reconstructions
 image.save('Reconstructions.png', torch.cat(image.toDisplayTensor(x, 2, 10), image.toDisplayTensor(xHat, 2, 10), 1))
+
+
