@@ -9,7 +9,7 @@ This repository is a Torch version of [Building Autoencoders in Keras](http://bl
 - **ConvAE**: Convolutional autoencoder
 - **UpconvAE**: Upconvolutional autoencoder - also known by [several other names](https://github.com/torch/nn/blob/master/doc/convolution.md#spatialfullconvolution) *(bonus)*
 - **DenoisingAE**: Denoising (convolutional) autoencoder
-- ~~**Seq2SeqAE**: Sequence-to-sequence autoencoder~~
+- **Seq2SeqAE**: Sequence-to-sequence autoencoder
 - **VAE**: Variational autoencoder
 - **AdvAE**: Adversarial autoencoder *(bonus)*
 
