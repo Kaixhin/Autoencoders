@@ -29,6 +29,7 @@ end
 local cmd = torch.CmdLine()
 cmd:option('-model', 'AE', 'Model: AE|SparseAE|DeepAE|ConvAE|UpconvAE|DenoisingAE|Seq2SeqAE|VAE|AdvAE')
 cmd:option('-learningRate', 0.001, 'Learning rate')
+cmd:option('-optimiser', 'adam', 'Optimiser')
 cmd:option('-epochs', 10, 'Training epochs')
 local opt = cmd:parse(arg)
 opt.batchSize = 150 -- Currently only set up for divisors of N
@@ -98,8 +99,7 @@ local feval = function(params)
 
     -- Optimize Gaussian KL-Divergence between inference model and prior: DKL(q(z)||N(0, I)) = log(σ2/σ1) + ((σ1^2 - σ2^2) + (μ1 - μ2)^2) / 2σ2^2
     local q = encoder.output
-    local mean = q[1]
-    local logStd = q[2]
+    local mean, logStd = table.unpack(encoder.output)
     local std = torch.exp(logStd)
     local KLLoss = -0.5 * torch.mean(1 + logStd - torch.pow(mean, 2) - std)
     loss = loss + KLLoss
@@ -158,27 +158,27 @@ for epoch = 1, opt.epochs do
     x = XTrain:narrow(1, n, opt.batchSize)
 
     -- Optimise
-    __, loss = optim.adam(feval, theta, optimParams)
+    __, loss = optim[opt.optimiser](feval, theta, optimParams)
     losses[#losses + 1] = loss[1]
 
     -- Train adversary
     if opt.model == 'AdvAE' then
-      __, loss = optim.adam(advFeval, thetaAdv, advOptimParams)     
+      __, loss = optim[opt.optimiser](advFeval, thetaAdv, advOptimParams)     
       advLosses[#advLosses + 1] = loss[1]
     end
   end
-end
 
--- Plot training curve(s)
-local plots = {{'Autoencoder', torch.linspace(1, #losses, #losses), torch.Tensor(losses), '-'}}
-if opt.model == 'AdvAE' then
-  plots[#plots + 1] = {'Adversary', torch.linspace(1, #advLosses, #advLosses), torch.Tensor(advLosses), '-'}
+  -- Plot training curve(s)
+  local plots = {{'Autoencoder', torch.linspace(1, #losses, #losses), torch.Tensor(losses), '-'}}
+  if opt.model == 'AdvAE' then
+    plots[#plots + 1] = {'Adversary', torch.linspace(1, #advLosses, #advLosses), torch.Tensor(advLosses), '-'}
+  end
+  gnuplot.pngfigure('Training.png')
+  gnuplot.plot(table.unpack(plots))
+  gnuplot.ylabel('Loss')
+  gnuplot.xlabel('Batch #')
+  gnuplot.plotflush()
 end
-gnuplot.pngfigure('Training.png')
-gnuplot.plot(table.unpack(plots))
-gnuplot.ylabel('Loss')
-gnuplot.xlabel('Batch #')
-gnuplot.plotflush()
 
 -- Test
 print('Testing')
@@ -201,12 +201,11 @@ image.save('Reconstructions.png', torch.cat(image.toDisplayTensor(x, 2, 10), ima
 -- Plot samples
 if opt.model == 'VAE' or opt.model == 'AdvAE' then
   local decoder = Model.decoder
-  local n = 15
   local height, width = XTest:size(2), XTest:size(3)
-  local samples = torch.Tensor(n * height, n * width):typeAs(XTest)
+  local samples = torch.Tensor(15 * height, 15 * width):typeAs(XTest)
   local std = 1
 
-  -- Sample n points within [-14, 14] standard deviations of N(0, 1)
+  -- Sample 15 points within [-14, 14] standard deviations of N(0, 1)
   for i = 1, 15  do
     for j = 1, 15 do
       local sample = torch.Tensor({2 * i * std - 16 * std, 2 * j * std - 16 * std}):typeAs(XTest):view(1, 2) -- Minibatch of 1 for batch normalisation

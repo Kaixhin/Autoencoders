@@ -26,7 +26,7 @@ function Model:createAutoencoder(X)
   epsilonModule:add(nn.MulConstant(0)) -- Zero out whatever input (do not do inplace)
   epsilonModule:add(nn.WhiteNoise(0, self.epsilonStd)) -- Generate noise ε
 
-  -- Create σ * ε module
+  -- Create σε module
   local noiseModule = nn.Sequential()
   local noiseModuleInternal = nn.ConcatTable()
   noiseModuleInternal:add(nn.Exp()) -- Exponentiate log standard deviations
@@ -34,7 +34,7 @@ function Model:createAutoencoder(X)
   noiseModule:add(noiseModuleInternal)
   noiseModule:add(nn.CMulTable())
 
-  -- Create sampler q(z) = N(z; μ, σI) = μ + σ * ε
+  -- Create sampler q(z) = N(z; μ, σI) = μ + σε (reparametrization trick)
   local sampler = nn.Sequential()
   local samplerInternal = nn.ParallelTable()
   samplerInternal:add(nn.Identity()) -- Pass through μ 
