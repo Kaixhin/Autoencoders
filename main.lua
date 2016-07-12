@@ -94,7 +94,10 @@ local feval = function(params)
   autoencoder:backward(x, gradLoss)
 
   -- Regularization phase
-  if opt.model == 'VAE' then
+  if opt.model == 'Seq2SeqAE' then
+    -- Clamp RNN gradients to prevent exploding gradients
+    gradTheta:clamp(-10, 10)
+  elseif opt.model == 'VAE' then
     local encoder = Model.encoder
 
     -- Optimize Gaussian KL-Divergence between inference model and prior: DKL(q(z)||N(0, I)) = log(σ2/σ1) + ((σ1^2 - σ2^2) + (μ1 - μ2)^2) / 2σ2^2
