@@ -206,7 +206,7 @@ if opt.model == 'VAE' or opt.model == 'AdvAE' then
   -- Sample n points within [-14, 14] standard deviations of N(0, 1)
   for i = 1, 15  do
     for j = 1, 15 do
-      local sample = torch.Tensor({2 * i * std - 16 * std, 2 * j * std - 16 * std}):typeAs(XTest)
+      local sample = torch.Tensor({2 * i * std - 16 * std, 2 * j * std - 16 * std}):typeAs(XTest):view(1, 2) -- Minibatch of 1 for batch normalisation
       samples[{{(i-1) * height + 1, i * height}, {(j-1) * width + 1, j * height}}] = decoder:forward(sample)
     end
   end

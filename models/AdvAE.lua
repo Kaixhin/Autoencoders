@@ -11,12 +11,14 @@ function Model:createAutoencoder(X)
   self.encoder = nn.Sequential()
   self.encoder:add(nn.View(-1, featureSize))
   self.encoder:add(nn.Linear(featureSize, 128))
+  self.encoder:add(nn.BatchNormalization(128))
   self.encoder:add(nn.ReLU(true))
   self.encoder:add(nn.Linear(128, self.zSize))
 
   -- Create decoder
   self.decoder = nn.Sequential()
   self.decoder:add(nn.Linear(self.zSize, 128))
+  self.decoder:add(nn.BatchNormalization(128))
   self.decoder:add(nn.ReLU(true))
   self.decoder:add(nn.Linear(128, featureSize))
   self.decoder:add(nn.Sigmoid(true))
@@ -32,6 +34,7 @@ function Model:createAdversary()
   -- Create adversary
   self.adversary = nn.Sequential()
   self.adversary:add(nn.Linear(self.zSize, 1))
+  self.adversary:add(nn.BatchNormalization(1))
   self.adversary:add(nn.Sigmoid(true))
 end
 
