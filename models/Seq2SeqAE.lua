@@ -66,7 +66,7 @@ function Model:createAutoencoder(X)
 
   -- Create replace wrapper
   function self.autoencoder:replace(fn)
-    return nil -- cuDNN require contiguous inputs so do not convert
+    self.parent.dummyContainer:replace(fn)
   end
 
   -- Create getParameters wrapper
