@@ -28,7 +28,8 @@ function Model:createAutoencoder(X)
 
   -- Create autoencoder
   self.autoencoder = nn.Sequential()
-  self.autoencoder:add(nn.WhiteNoise(0, 0.5)) -- Add white noise to inputs during training
+  self.noiser = nn.WhiteNoise(0, 0.5) -- Add white noise to inputs during training
+  self.autoencoder:add(self.noiser)
   self.autoencoder:add(self.encoder)
   self.autoencoder:add(self.decoder)
 end
