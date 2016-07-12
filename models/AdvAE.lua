@@ -1,19 +1,20 @@
 local nn = require 'nn'
 
 local Model = {
-  zSize = 2
+  zSize = 2 --  -- Size of multivariate Gaussian Z with diagonal covariance
 }
 
 function Model:createAutoencoder(X)
   local featureSize = X:size(2) * X:size(3)
 
-  -- Create encoder
+  -- Create encoder (generator)
   self.encoder = nn.Sequential()
   self.encoder:add(nn.View(-1, featureSize))
   self.encoder:add(nn.Linear(featureSize, 128))
   self.encoder:add(nn.BatchNormalization(128))
   self.encoder:add(nn.ReLU(true))
-  self.encoder:add(nn.Linear(128, self.zSize))
+  self.encoder:add(nn.Linear(128, self.zSize)) -- Encoding distribution q(z|x) is a deterministic function of x
+  -- Note that a Gaussian posterior (like VAE) or universal approximator posterior could be used, but deterministic q(z|x) works well
 
   -- Create decoder
   self.decoder = nn.Sequential()
@@ -31,7 +32,7 @@ function Model:createAutoencoder(X)
 end
 
 function Model:createAdversary()
-  -- Create adversary
+  -- Create adversary (discriminator)
   self.adversary = nn.Sequential()
   self.adversary:add(nn.Linear(self.zSize, 1))
   self.adversary:add(nn.BatchNormalization(1))
