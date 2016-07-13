@@ -206,9 +206,9 @@ if opt.model == 'VAE' or opt.model == 'AdvAE' then
   local decoder = Model.decoder
   local height, width = XTest:size(2), XTest:size(3)
   local samples = torch.Tensor(15 * height, 15 * width):typeAs(XTest)
-  local std = 1
+  local std = 0.05
 
-  -- Sample 15 points within [-14, 14] standard deviations of N(0, 1)
+  -- Sample 15 points
   for i = 1, 15  do
     for j = 1, 15 do
       local sample = torch.Tensor({2 * i * std - 16 * std, 2 * j * std - 16 * std}):typeAs(XTest):view(1, 2) -- Minibatch of 1 for batch normalisation
