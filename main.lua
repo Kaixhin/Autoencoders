@@ -208,11 +208,11 @@ if opt.model == 'VAE' or opt.model == 'AdvAE' then
   local samples = torch.Tensor(15 * height, 15 * width):typeAs(XTest)
   local std = 0.05
 
-  -- Sample 15 points
+  -- Sample 15 x 15 points
   for i = 1, 15  do
     for j = 1, 15 do
       local sample = torch.Tensor({2 * i * std - 16 * std, 2 * j * std - 16 * std}):typeAs(XTest):view(1, 2) -- Minibatch of 1 for batch normalisation
-      samples[{{(i-1) * height + 1, i * height}, {(j-1) * width + 1, j * height}}] = decoder:forward(sample)
+      samples[{{(i-1) * height + 1, i * height}, {(j-1) * width + 1, j * width}}] = decoder:forward(sample)
     end
   end
   image.save('Samples.png', samples)
