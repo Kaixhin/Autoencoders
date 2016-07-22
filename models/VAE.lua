@@ -3,7 +3,7 @@ require 'dpnn'
 
 local Model = {
   zSize = 2, -- Size of multivariate Gaussian Z
-  epsilonStd = 0.01 -- Noise ε standard deviation
+  epsilonStd = 1 -- Noise ε standard deviation
 }
 
 function Model:createAutoencoder(X)
@@ -15,10 +15,13 @@ function Model:createAutoencoder(X)
   self.encoder:add(nn.Linear(featureSize, 128))
   self.encoder:add(nn.BatchNormalization(128))
   self.encoder:add(nn.ReLU(true))
+  self.encoder:add(nn.Linear(128, 64))
+  self.encoder:add(nn.BatchNormalization(64))
+  self.encoder:add(nn.ReLU(true))
   -- Create latent Z parameter layer
   local zLayer = nn.ConcatTable()
-  zLayer:add(nn.Linear(128, self.zSize)) -- Mean μ of Z
-  zLayer:add(nn.Linear(128, self.zSize)) -- Log standard deviation σ of Z (diagonal covariance)
+  zLayer:add(nn.Linear(64, self.zSize)) -- Mean μ of Z
+  zLayer:add(nn.Linear(64, self.zSize)) -- Log variance σ^2 of Z (diagonal covariance)
   self.encoder:add(zLayer) -- Add Z parameter layer
 
   -- Create noise ε sample module
@@ -29,10 +32,13 @@ function Model:createAutoencoder(X)
   -- Create σε module
   local noiseModule = nn.Sequential()
   local noiseModuleInternal = nn.ConcatTable()
-  noiseModuleInternal:add(nn.Exp()) -- Exponentiate log standard deviations
-  noiseModuleInternal:add(epsilonModule) -- Sample noise
+  local stdModule = nn.Sequential()
+  stdModule:add(nn.MulConstant(0.5)) -- Compute 1/2 log σ^2 = log σ
+  stdModule:add(nn.Exp()) -- Compute σ
+  noiseModuleInternal:add(stdModule) -- Standard deviation σ
+  noiseModuleInternal:add(epsilonModule) -- Sample noise ε
   noiseModule:add(noiseModuleInternal)
-  noiseModule:add(nn.CMulTable())
+  noiseModule:add(nn.CMulTable()) -- Compute σε
 
   -- Create sampler q(z) = N(z; μ, σI) = μ + σε (reparametrization trick)
   local sampler = nn.Sequential()
@@ -44,7 +50,10 @@ function Model:createAutoencoder(X)
 
   -- Create decoder (generative model p)
   self.decoder = nn.Sequential()
-  self.decoder:add(nn.Linear(self.zSize, 128))
+  self.decoder:add(nn.Linear(self.zSize, 64))
+  self.decoder:add(nn.BatchNormalization(64))
+  self.decoder:add(nn.ReLU(true))
+  self.decoder:add(nn.Linear(64, 128))
   self.decoder:add(nn.BatchNormalization(128))
   self.decoder:add(nn.ReLU(true))
   self.decoder:add(nn.Linear(128, featureSize))

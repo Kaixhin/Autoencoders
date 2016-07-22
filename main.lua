@@ -101,12 +101,14 @@ local feval = function(params)
     local encoder = Model.encoder
 
     -- Optimize Gaussian KL-Divergence between inference model and prior: DKL(q(z)||N(0, I)) = log(σ2/σ1) + ((σ1^2 - σ2^2) + (μ1 - μ2)^2) / 2σ2^2
+    local nElements = xHat:nElement()
     local q = encoder.output
-    local mean, logStd = table.unpack(encoder.output)
-    local std = torch.exp(logStd)
-    local KLLoss = -0.5 * torch.mean(1 + logStd - torch.pow(mean, 2) - std)
+    local mean, logVar = table.unpack(encoder.output)
+    local var = torch.exp(logVar)
+    local KLLoss = -0.5 * torch.sum(1 + logVar - torch.pow(mean, 2) - var)
+    KLLoss = KLLoss / nElements -- Normalise loss (same normalisation as BCECriterion)
     loss = loss + KLLoss
-    local gradKLLoss = {mean, 0.5*(std - 1)}
+    local gradKLLoss = {mean / nElements, 0.5*(var - 1) / nElements}  -- Normalise gradient of loss (same normalisation as BCECriterion)
     encoder:backward(x, gradKLLoss)
   elseif opt.model == 'AdvAE' then
     local encoder = Model.encoder
