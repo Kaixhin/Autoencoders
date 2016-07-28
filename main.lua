@@ -102,7 +102,6 @@ local feval = function(params)
 
     -- Optimize Gaussian KL-Divergence between inference model and prior: DKL(q(z)||N(0, I)) = log(σ2/σ1) + ((σ1^2 - σ2^2) + (μ1 - μ2)^2) / 2σ2^2
     local nElements = xHat:nElement()
-    local q = encoder.output
     local mean, logVar = table.unpack(encoder.output)
     local var = torch.exp(logVar)
     local KLLoss = -0.5 * torch.sum(1 + logVar - torch.pow(mean, 2) - var)
