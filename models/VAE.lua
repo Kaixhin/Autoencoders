@@ -2,7 +2,7 @@ local nn = require 'nn'
 require 'dpnn'
 
 local Model = {
-  zSize = 2, -- Size of multivariate Gaussian Z
+  zSize = 2, -- Size of isotropic multivariate Gaussian Z
   epsilonStd = 1 -- Noise ε standard deviation
 }
 

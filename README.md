@@ -11,7 +11,7 @@ This repository is a Torch version of [Building Autoencoders in Keras](http://bl
 - **DenoisingAE**: Denoising (convolutional) autoencoder
 - **Seq2SeqAE**: Sequence-to-sequence autoencoder
 - **VAE**: Variational autoencoder
-- **AdvAE**: Adversarial autoencoder *(bonus)*
+- **AAE**: Adversarial autoencoder *(bonus)*
 
 Different models can be chosen using `th main.lua -model <modelName>`.
 

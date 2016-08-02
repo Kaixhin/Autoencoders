@@ -27,7 +27,7 @@ end
 
 -- Choose model to train
 local cmd = torch.CmdLine()
-cmd:option('-model', 'AE', 'Model: AE|SparseAE|DeepAE|ConvAE|UpconvAE|DenoisingAE|Seq2SeqAE|VAE|AdvAE')
+cmd:option('-model', 'AE', 'Model: AE|SparseAE|DeepAE|ConvAE|UpconvAE|DenoisingAE|Seq2SeqAE|VAE|AAE')
 cmd:option('-learningRate', 0.001, 'Learning rate')
 cmd:option('-optimiser', 'adam', 'Optimiser')
 cmd:option('-epochs', 10, 'Training epochs')
@@ -48,7 +48,7 @@ end
 
 -- Create adversary (if needed)
 local adversary
-if opt.model == 'AdvAE' then
+if opt.model == 'AAE' then
   Model:createAdversary()
   adversary = Model.adversary
   if cuda then
@@ -63,7 +63,7 @@ end
 -- Get parameters
 local theta, gradTheta = autoencoder:getParameters()
 local thetaAdv, gradThetaAdv
-if opt.model == 'AdvAE' then
+if opt.model == 'AAE' then
   thetaAdv, gradThetaAdv = adversary:getParameters()
 end
 
@@ -81,7 +81,7 @@ local feval = function(params)
   end
   -- Zero gradients
   gradTheta:zero()
-  if opt.model == 'AdvAE' then
+  if opt.model == 'AAE' then
     gradThetaAdv:zero()
   end
 
@@ -109,7 +109,7 @@ local feval = function(params)
     loss = loss + KLLoss
     local gradKLLoss = {mean / nElements, 0.5*(var - 1) / nElements}  -- Normalise gradient of loss (same normalisation as BCECriterion)
     encoder:backward(x, gradKLLoss)
-  elseif opt.model == 'AdvAE' then
+  elseif opt.model == 'AAE' then
     local encoder = Model.encoder
     local real = torch.Tensor(opt.batchSize, Model.zSize):normal(0, 1):typeAs(XTrain) -- Real samples ~ N(0, 1)
     local YReal = torch.ones(opt.batchSize):typeAs(XTrain) -- Labels for real samples
@@ -166,7 +166,7 @@ for epoch = 1, opt.epochs do
     losses[#losses + 1] = loss[1]
 
     -- Train adversary
-    if opt.model == 'AdvAE' then
+    if opt.model == 'AAE' then
       __, loss = optim[opt.optimiser](advFeval, thetaAdv, advOptimParams)     
       advLosses[#advLosses + 1] = loss[1]
     end
@@ -174,7 +174,7 @@ for epoch = 1, opt.epochs do
 
   -- Plot training curve(s)
   local plots = {{'Autoencoder', torch.linspace(1, #losses, #losses), torch.Tensor(losses), '-'}}
-  if opt.model == 'AdvAE' then
+  if opt.model == 'AAE' then
     plots[#plots + 1] = {'Adversary', torch.linspace(1, #advLosses, #advLosses), torch.Tensor(advLosses), '-'}
   end
   gnuplot.pngfigure('Training.png')
@@ -203,7 +203,7 @@ end
 image.save('Reconstructions.png', torch.cat(image.toDisplayTensor(x, 2, 10), image.toDisplayTensor(xHat, 2, 10), 1))
 
 -- Plot samples
-if opt.model == 'VAE' or opt.model == 'AdvAE' then
+if opt.model == 'VAE' or opt.model == 'AAE' then
   local decoder = Model.decoder
   local height, width = XTest:size(2), XTest:size(3)
   local samples = torch.Tensor(15 * height, 15 * width):typeAs(XTest)

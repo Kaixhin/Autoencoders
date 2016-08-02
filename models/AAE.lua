@@ -1,7 +1,7 @@
 local nn = require 'nn'
 
 local Model = {
-  zSize = 2 --  -- Size of multivariate Gaussian Z with diagonal covariance
+  zSize = 2 --  -- Size of isotropic multivariate Gaussian Z
 }
 
 function Model:createAutoencoder(X)
