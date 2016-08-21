@@ -8,7 +8,6 @@ local hasCudnn, cudnn = pcall(require, 'cudnn') -- Use cuDNN if available
 
 -- Set up Torch
 print('Setting up')
-torch.setheaptracking(true)
 torch.setdefaulttensortype('torch.FloatTensor')
 torch.manualSeed(1)
 if cuda then
