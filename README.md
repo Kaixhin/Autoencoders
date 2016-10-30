@@ -15,6 +15,8 @@ This repository is a Torch version of [Building Autoencoders in Keras](http://bl
 
 Different models can be chosen using `th main.lua -model <modelName>`.
 
+MCMC sampling can be used for VAEs and AAEs with `th main.lua -model <modelName> -mcmc <steps>`. To see the effects of MCMC sampling with this simple setup it is best to choose a large standard deviation, e.g. `-sampleStd 5`, for the Gaussian distribution to draw the initial samples from.
+
 Requirements
 ------------
 

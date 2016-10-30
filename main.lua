@@ -30,6 +30,8 @@ cmd:option('-model', 'AE', 'Model: AE|SparseAE|DeepAE|ConvAE|UpconvAE|DenoisingA
 cmd:option('-learningRate', 0.001, 'Learning rate')
 cmd:option('-optimiser', 'adam', 'Optimiser')
 cmd:option('-epochs', 10, 'Training epochs')
+cmd:option('-mcmc', 0, 'MCMC samples')
+cmd:option('-sampleStd', 1, 'Standard deviation of Gaussian distribution to sample from')
 local opt = cmd:parse(arg)
 opt.batchSize = 150 -- Currently only set up for divisors of N
 
@@ -201,19 +203,37 @@ end
 -- Plot reconstructions
 image.save('Reconstructions.png', torch.cat(image.toDisplayTensor(x, 2, 10), image.toDisplayTensor(xHat, 2, 10), 1))
 
--- Plot samples
 if opt.model == 'VAE' or opt.model == 'AAE' then
+  -- Plot interpolations
   local decoder = Model.decoder
   local height, width = XTest:size(2), XTest:size(3)
-  local samples = torch.Tensor(15 * height, 15 * width):typeAs(XTest)
+  local interpolations = torch.Tensor(15 * height, 15 * width):typeAs(XTest)
   local std = 0.05
 
   -- Sample 15 x 15 points
   for i = 1, 15  do
     for j = 1, 15 do
       local sample = torch.Tensor({2 * i * std - 16 * std, 2 * j * std - 16 * std}):typeAs(XTest):view(1, 2) -- Minibatch of 1 for batch normalisation
-      samples[{{(i-1) * height + 1, i * height}, {(j-1) * width + 1, j * width}}] = decoder:forward(sample)
+      interpolations[{{(i-1) * height + 1, i * height}, {(j-1) * width + 1, j * width}}] = decoder:forward(sample)
     end
   end
-  image.save('Samples.png', samples)
+  image.save('Interpolations.png', interpolations)
+
+  -- Plot samples
+  local output = decoder:forward(torch.Tensor(15 * 15, 2):normal(0, opt.sampleStd):typeAs(XTest)):clone()
+  
+  -- Perform MCMC sampling
+  for m = 0, opt.mcmc do
+    -- Save samples
+    if m == 0 then
+      image.save('Samples.png', image.toDisplayTensor(decoder.output, 0, 15))
+    else
+      image.save('Samples (MCMC step ' .. m .. ').png', image.toDisplayTensor(decoder.output, 0, 15))
+    end
+
+    -- Forward again
+    autoencoder:forward(output)
+  end
 end
+
+
