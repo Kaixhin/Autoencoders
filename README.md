@@ -11,6 +11,7 @@ This repository is a Torch version of [Building Autoencoders in Keras](http://bl
 - **DenoisingAE**: Denoising (convolutional) autoencoder
 - **Seq2SeqAE**: Sequence-to-sequence autoencoder
 - **VAE**: Variational autoencoder
+- **CatVAE**: Categorical variational autoencoder *(bonus)*
 - **AAE**: Adversarial autoencoder *(bonus)*
 
 Different models can be chosen using `th main.lua -model <modelName>`.
@@ -23,5 +24,5 @@ Requirements
 The following luarocks packages are required:
 
 - mnist
-- dpnn (for DenoisingAE, VAE)
+- dpnn (for DenoisingAE)
 - rnn (for Seq2SeqAE)

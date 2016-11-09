@@ -26,7 +26,7 @@ end
 
 -- Choose model to train
 local cmd = torch.CmdLine()
-cmd:option('-model', 'AE', 'Model: AE|SparseAE|DeepAE|ConvAE|UpconvAE|DenoisingAE|Seq2SeqAE|VAE|AAE')
+cmd:option('-model', 'AE', 'Model: AE|SparseAE|DeepAE|ConvAE|UpconvAE|DenoisingAE|Seq2SeqAE|VAE|CatVAE|AAE')
 cmd:option('-learningRate', 0.001, 'Learning rate')
 cmd:option('-optimiser', 'adam', 'Optimiser')
 cmd:option('-epochs', 10, 'Training epochs')
@@ -101,7 +101,7 @@ local feval = function(params)
   elseif opt.model == 'VAE' then
     local encoder = Model.encoder
 
-    -- Optimize Gaussian KL-Divergence between inference model and prior: DKL(q(z)||N(0, I)) = log(σ2/σ1) + ((σ1^2 - σ2^2) + (μ1 - μ2)^2) / 2σ2^2
+    -- Optimise Gaussian KL divergence between inference model and prior: DKL(q(z|x)||N(0, I)) = log(σ2/σ1) + ((σ1^2 - σ2^2) + (μ1 - μ2)^2) / 2σ2^2
     local nElements = xHat:nElement()
     local mean, logVar = table.unpack(encoder.output)
     local var = torch.exp(logVar)
@@ -109,6 +109,16 @@ local feval = function(params)
     KLLoss = KLLoss / nElements -- Normalise loss (same normalisation as BCECriterion)
     loss = loss + KLLoss
     local gradKLLoss = {mean / nElements, 0.5*(var - 1) / nElements}  -- Normalise gradient of loss (same normalisation as BCECriterion)
+    encoder:backward(x, gradKLLoss)
+  elseif opt.model == 'CatVAE' then
+    local encoder = Model.encoder
+
+    -- Optimise KL divergence between inference model and prior
+    local nElements = xHat:nElement()
+    local KLLoss = 1 -- TODO
+    KLLoss = KLLoss / nElements -- Normalise loss (same normalisation as BCECriterion)
+    local gradKLLoss = 1 -- TODO
+    loss = loss + KLLoss
     encoder:backward(x, gradKLLoss)
   elseif opt.model == 'AAE' then
     local encoder = Model.encoder

@@ -1,15 +1,14 @@
 local nn = require 'nn'
-require 'dpnn'
+require '../modules/Gaussian'
 
 local Model = {
-  zSize = 2, -- Size of isotropic multivariate Gaussian Z
-  epsilonStd = 1 -- Noise ε standard deviation
+  zSize = 2 -- Size of isotropic multivariate Gaussian Z
 }
 
 function Model:createAutoencoder(X)
   local featureSize = X:size(2) * X:size(3)
 
-  -- Create encoder (inference model q, variational approximation for posterior p(z|x))
+  -- Create encoder (inference/recognition model q, variational approximation for posterior p(z|x))
   self.encoder = nn.Sequential()
   self.encoder:add(nn.View(-1, featureSize))
   self.encoder:add(nn.Linear(featureSize, 128))
@@ -24,11 +23,6 @@ function Model:createAutoencoder(X)
   zLayer:add(nn.Linear(64, self.zSize)) -- Log variance σ^2 of Z (diagonal covariance)
   self.encoder:add(zLayer) -- Add Z parameter layer
 
-  -- Create noise ε sample module
-  local epsilonModule = nn.Sequential()
-  epsilonModule:add(nn.MulConstant(0)) -- Zero out whatever input (do not do inplace)
-  epsilonModule:add(nn.WhiteNoise(0, self.epsilonStd)) -- Generate noise ε
-
   -- Create σε module
   local noiseModule = nn.Sequential()
   local noiseModuleInternal = nn.ConcatTable()
@@ -36,7 +30,7 @@ function Model:createAutoencoder(X)
   stdModule:add(nn.MulConstant(0.5)) -- Compute 1/2 log σ^2 = log σ
   stdModule:add(nn.Exp()) -- Compute σ
   noiseModuleInternal:add(stdModule) -- Standard deviation σ
-  noiseModuleInternal:add(epsilonModule) -- Sample noise ε
+  noiseModuleInternal:add(nn.Gaussian(0, 1)) -- Sample noise ε ~ N(0, 1)
   noiseModule:add(noiseModuleInternal)
   noiseModule:add(nn.CMulTable()) -- Compute σε
 
@@ -48,7 +42,7 @@ function Model:createAutoencoder(X)
   sampler:add(samplerInternal)
   sampler:add(nn.CAddTable())
 
-  -- Create decoder (generative model p)
+  -- Create decoder (generative model q)
   self.decoder = nn.Sequential()
   self.decoder:add(nn.Linear(self.zSize, 64))
   self.decoder:add(nn.BatchNormalization(64))
