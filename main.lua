@@ -227,7 +227,7 @@ if opt.model == 'VAE' or opt.model == 'AAE' then
   local decoder = Model.decoder
   local height, width = XTest:size(2), XTest:size(3)
   local interpolations = torch.Tensor(15 * height, 15 * width):typeAs(XTest)
-  local std = 0.05
+  local std = 0.05 -- TODO: Move to spherical interpolation?
 
   -- Sample 15 x 15 points
   for i = 1, 15  do
@@ -240,6 +240,38 @@ if opt.model == 'VAE' or opt.model == 'AAE' then
 
   -- Plot samples
   local output = decoder:forward(torch.Tensor(15 * 15, 2):normal(0, opt.sampleStd):typeAs(XTest)):clone()
+  
+  -- Perform MCMC sampling
+  for m = 0, opt.mcmc do
+    -- Save samples
+    if m == 0 then
+      image.save('Samples.png', image.toDisplayTensor(decoder.output, 0, 15))
+    else
+      image.save('Samples (MCMC step ' .. m .. ').png', image.toDisplayTensor(decoder.output, 0, 15))
+    end
+
+    -- Forward again
+    autoencoder:forward(output)
+  end
+elseif opt.model == 'CatVAE' then
+  -- Plot "interpolations"
+  local decoder = Model.decoder
+  local height, width = XTest:size(2), XTest:size(3)
+  local interpolations = torch.Tensor(Model.N * height, Model.k * width):typeAs(XTest)
+  
+  for n = 1, Model.N do
+    for k = 1, Model.k do
+      local sample = torch.ones(Model.N, Model.k):div(Model.k):typeAs(XTest) -- TODO: Work out reasonable "interpolation"
+      sample[n]:zero()
+      sample[n][k] = 1
+      interpolations[{{(n-1) * height + 1, n * height}, {(k-1) * width + 1, k * width}}] = Model.decoder:forward(sample:view(1, Model.N * Model.k)) -- Minibatch of 1 for batch normalisation
+    end
+  end
+  image.save('Interpolations.png', interpolations)
+
+  -- Plot samples
+  local samples = softmax:forward(torch.Tensor(15 * 15 * Model.N, Model.k):normal(0, 1):typeAs(XTest)):view(15 * 15, Model.N * Model.k)
+  local output = decoder:forward(samples):clone()
   
   -- Perform MCMC sampling
   for m = 0, opt.mcmc do
