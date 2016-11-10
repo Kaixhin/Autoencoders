@@ -2,7 +2,7 @@ local nn = require 'nn'
 require '../modules/Uniform'
 
 local Model = {
-  N = 30, -- Number of Gumbel-(Soft)Max distributions
+  N = 5, -- Number of Gumbel-(Soft)Max distributions
   k = 10, -- Number of categories/classes
   tau = 1 -- Softmax temperature τ
 }
@@ -29,7 +29,7 @@ function Model:createAutoencoder(X)
   noiseModule:add(nn.MulConstant(-1, true))
   noiseModule:add(nn.Log())
   noiseModule:add(nn.MulConstant(-1, true))
-
+  
   -- Create sampler q(z) = G(z) = softmax((log(π) + ε)/τ) (reparametrization trick)
   local sampler = nn.Sequential()
   local samplerInternal = nn.ConcatTable()

@@ -116,21 +116,19 @@ local feval = function(params)
     local encoder = Model.encoder
 
     -- Optimise KL divergence between inference model and prior
-    --[[
     local nElements = xHat:nElement()
-    local z = softmax:forward(encoder.output:view(-1, Model.N, Model.k))
+    local z = softmax:forward(encoder.output:view(-1, Model.k))
     local logZ = torch.log(z)
     local KLLoss = torch.sum(z:cmul(logZ - math.log(1 / Model.k)))
     KLLoss = KLLoss / nElements -- Normalise loss (same normalisation as BCECriterion)
-    local gradKLLoss = softmax:backward(encoder.output:view(-1, Model.N, Model.k), logZ + 1 - math.log(1 / Model.k))
+    local gradKLLoss = softmax:backward(encoder.output:view(-1, Model.k), math.log(1 / Model.k) - logZ - 1):view(-1, Model.N * Model.k)
     gradKLLoss = gradKLLoss / nElements -- Normalise gradient of loss (same normalisation as BCECriterion)
     loss = loss + KLLoss
     encoder:backward(x, gradKLLoss)
-    --]]
     
     -- Anneal temperature τ
-    Model.tau = math.max(Model.tau - 0.0002, 0.5) -- TODO: Tune
-    Model.temperature.constant_scalar = Model.tau
+    Model.tau = math.max(Model.tau - 0.0002, 0.5)
+    Model.temperature.constant_scalar = 1 / Model.tau
   elseif opt.model == 'AAE' then
     local encoder = Model.encoder
     local real = torch.Tensor(opt.batchSize, Model.zSize):normal(0, 1):typeAs(XTrain) -- Real samples ~ N(0, 1)
