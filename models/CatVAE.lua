@@ -3,8 +3,8 @@ require '../modules/Uniform'
 
 local Model = {
   N = 30, -- Number of Gumbel-(Soft)Max distributions
-  k = 10, -- Number of categories
-  tau = 5 -- Softmax temperature τ
+  k = 10, -- Number of categories/classes
+  tau = 1 -- Softmax temperature τ
 }
 
 function Model:createAutoencoder(X)
@@ -19,7 +19,7 @@ function Model:createAutoencoder(X)
   self.encoder:add(nn.Linear(128, 64))
   self.encoder:add(nn.BatchNormalization(64))
   self.encoder:add(nn.ReLU(true))
-  self.encoder:add(nn.Linear(64, self.N * self.k)) -- Unnormalised probabilities π
+  self.encoder:add(nn.Linear(64, self.N * self.k)) -- Unnormalised log probabilities log(π)
 
   -- Create noise ε sample module
   local noiseModule = nn.Sequential()
@@ -33,14 +33,16 @@ function Model:createAutoencoder(X)
   -- Create sampler q(z) = G(z) = softmax((log(π) + ε)/τ) (reparametrization trick)
   local sampler = nn.Sequential()
   local samplerInternal = nn.ConcatTable()
-  samplerInternal:add(nn.Log()) -- Create unnormalised log probabilities log(π)
+  samplerInternal:add(nn.Identity()) -- Unnormalised log probabilities log(π)
   samplerInternal:add(noiseModule) -- Create noise ε
   sampler:add(samplerInternal)
   sampler:add(nn.CAddTable())
-  sampler:add(nn.MulConstant(1/self.tau, true)) -- Temperature τ for softmax
-  --sampler:add(nn.View(-1 * self.N, self.k)) -- Resize to work over N
+  self.temperature = nn.MulConstant(1 / self.tau, true) -- Temperature τ for softmax
+  sampler:add(self.temperature)
+  sampler:add(nn.View(-1, self.k)) -- Resize to work over k
   sampler:add(nn.SoftMax())
-  --sampler:add(nn.View(-1, self.N * self.k)) -- Resize back
+  sampler:add(nn.View(-1, self.N * self.k)) -- Resize back
+  -- TODO: Hard sampling
 
   -- Create decoder (generative model p)
   self.decoder = nn.Sequential()

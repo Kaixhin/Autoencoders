@@ -70,8 +70,10 @@ end
 
 -- Create loss
 local criterion = nn.BCECriterion()
+local softmax = nn.SoftMax() -- Softmax for CatVAE KL divergence
 if cuda then
   criterion:cuda()
+  softmax:cuda()
 end
 
 -- Create optimiser function evaluation
@@ -101,7 +103,7 @@ local feval = function(params)
   elseif opt.model == 'VAE' then
     local encoder = Model.encoder
 
-    -- Optimise Gaussian KL divergence between inference model and prior: DKL(q(z|x)||N(0, I)) = log(σ2/σ1) + ((σ1^2 - σ2^2) + (μ1 - μ2)^2) / 2σ2^2
+    -- Optimise Gaussian KL divergence between inference model and prior: DKL[q(z|x)||N(0, σI)] = log(σ2/σ1) + ((σ1^2 - σ2^2) + (μ1 - μ2)^2) / 2σ2^2
     local nElements = xHat:nElement()
     local mean, logVar = table.unpack(encoder.output)
     local var = torch.exp(logVar)
@@ -114,12 +116,21 @@ local feval = function(params)
     local encoder = Model.encoder
 
     -- Optimise KL divergence between inference model and prior
+    --[[
     local nElements = xHat:nElement()
-    local KLLoss = 1 -- TODO
+    local z = softmax:forward(encoder.output:view(-1, Model.N, Model.k))
+    local logZ = torch.log(z)
+    local KLLoss = torch.sum(z:cmul(logZ - math.log(1 / Model.k)))
     KLLoss = KLLoss / nElements -- Normalise loss (same normalisation as BCECriterion)
-    local gradKLLoss = 1 -- TODO
+    local gradKLLoss = softmax:backward(encoder.output:view(-1, Model.N, Model.k), logZ + 1 - math.log(1 / Model.k))
+    gradKLLoss = gradKLLoss / nElements -- Normalise gradient of loss (same normalisation as BCECriterion)
     loss = loss + KLLoss
     encoder:backward(x, gradKLLoss)
+    --]]
+    
+    -- Anneal temperature τ
+    Model.tau = math.max(Model.tau - 0.0002, 0.5) -- TODO: Tune
+    Model.temperature.constant_scalar = Model.tau
   elseif opt.model == 'AAE' then
     local encoder = Model.encoder
     local real = torch.Tensor(opt.batchSize, Model.zSize):normal(0, 1):typeAs(XTrain) -- Real samples ~ N(0, 1)
@@ -245,5 +256,3 @@ if opt.model == 'VAE' or opt.model == 'AAE' then
     autoencoder:forward(output)
   end
 end
-
-
