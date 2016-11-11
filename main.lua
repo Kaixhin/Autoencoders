@@ -117,7 +117,7 @@ local feval = function(params)
 
     -- Optimise KL divergence between inference model and prior
     local nElements = xHat:nElement()
-    local z = softmax:forward(encoder.output:view(-1, Model.k))
+    local z = softmax:forward(encoder.output:view(-1, Model.k)) + 1e-9 -- Improve numerical stability
     local logZ = torch.log(z)
     local KLLoss = torch.sum(z:cmul(logZ - math.log(1 / Model.k)))
     KLLoss = KLLoss / nElements -- Normalise loss (same normalisation as BCECriterion)
@@ -227,12 +227,12 @@ if opt.model == 'VAE' or opt.model == 'AAE' then
   local decoder = Model.decoder
   local height, width = XTest:size(2), XTest:size(3)
   local interpolations = torch.Tensor(15 * height, 15 * width):typeAs(XTest)
-  local std = 0.05 -- TODO: Move to spherical interpolation?
+  local step = 0.05 -- Use small steps in dense region of 2D Gaussian; TODO: Move to spherical interpolation?
 
   -- Sample 15 x 15 points
   for i = 1, 15  do
     for j = 1, 15 do
-      local sample = torch.Tensor({2 * i * std - 16 * std, 2 * j * std - 16 * std}):typeAs(XTest):view(1, 2) -- Minibatch of 1 for batch normalisation
+      local sample = torch.Tensor({2 * i * step - 16 * step, 2 * j * step - 16 * step}):typeAs(XTest):view(1, 2) -- Minibatch of 1 for batch normalisation
       interpolations[{{(i-1) * height + 1, i * height}, {(j-1) * width + 1, j * width}}] = decoder:forward(sample)
     end
   end
@@ -261,16 +261,17 @@ elseif opt.model == 'CatVAE' then
   
   for n = 1, Model.N do
     for k = 1, Model.k do
-      local sample = torch.ones(Model.N, Model.k):div(Model.k):typeAs(XTest) -- TODO: Work out reasonable "interpolation"
-      sample[n]:zero()
-      sample[n][k] = 1
+      local sample = torch.zeros(Model.N, Model.k):typeAs(XTest)
+      sample[{{}, {1}}] = 1 -- Start with first dimension "set"
+      sample[n] = 0 -- Zero out distribution
+      sample[n][k] = 1 -- "Set" cluster
       interpolations[{{(n-1) * height + 1, n * height}, {(k-1) * width + 1, k * width}}] = Model.decoder:forward(sample:view(1, Model.N * Model.k)) -- Minibatch of 1 for batch normalisation
     end
   end
   image.save('Interpolations.png', interpolations)
 
   -- Plot samples
-  local samples = softmax:forward(torch.Tensor(15 * 15 * Model.N, Model.k):normal(0, 1):typeAs(XTest)):view(15 * 15, Model.N * Model.k)
+  local samples = torch.Tensor(15 * 15 * Model.N, Model.k):bernoulli(1 / Model.k):typeAs(XTest):view(15 * 15, Model.N * Model.k)
   local output = decoder:forward(samples):clone()
   
   -- Perform MCMC sampling

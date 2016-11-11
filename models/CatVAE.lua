@@ -25,8 +25,10 @@ function Model:createAutoencoder(X)
   local noiseModule = nn.Sequential()
   noiseModule:add(nn.Uniform(0, 1)) -- Sample from U(0, 1)
   -- Transform uniform sample to Gumbel sample
+  noiseModule:add(nn.AddConstant(1e-9, true)) -- Improve numerical stability
   noiseModule:add(nn.Log())
   noiseModule:add(nn.MulConstant(-1, true))
+  noiseModule:add(nn.AddConstant(1e-9, true)) -- Improve numerical stability
   noiseModule:add(nn.Log())
   noiseModule:add(nn.MulConstant(-1, true))
   
