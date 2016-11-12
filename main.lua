@@ -26,6 +26,7 @@ end
 
 -- Choose model to train
 local cmd = torch.CmdLine()
+cmd:option('-cpu', false, 'CPU only (useful if GPU memory is too low)')
 cmd:option('-model', 'AE', 'Model: AE|SparseAE|DeepAE|ConvAE|UpconvAE|DenoisingAE|Seq2SeqAE|VAE|CatVAE|AAE')
 cmd:option('-learningRate', 0.001, 'Learning rate')
 cmd:option('-optimiser', 'adam', 'Optimiser')
@@ -34,6 +35,9 @@ cmd:option('-mcmc', 0, 'MCMC samples')
 cmd:option('-sampleStd', 1, 'Standard deviation of Gaussian distribution to sample from')
 local opt = cmd:parse(arg)
 opt.batchSize = 150 -- Currently only set up for divisors of N
+if opt.cpu then
+  cuda = false
+end
 
 -- Create model
 local Model = require ('models/' .. opt.model)
