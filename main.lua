@@ -149,7 +149,7 @@ local feval = function(params)
     local gradFake = adversary:backward(encoder.output, gradFakeLoss)
 
     -- Train encoder (generator) to play a minimax game with the adversary (discriminator): min_G max_D log(1 - D(G(x)))
-    local minimaxLoss = criterion:forward(pred, YReal)
+    local minimaxLoss = criterion:forward(pred, YReal) -- Technically use max_G max_D log(D(G(x))) for same fixed point, stronger initial gradients
     loss = loss + minimaxLoss
     local gradMinimaxLoss = criterion:backward(pred, YReal)
     local gradMinimax = adversary:updateGradInput(encoder.output, gradMinimaxLoss) -- Do not calculate gradient wrt adversary parameters
