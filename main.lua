@@ -105,36 +105,31 @@ local feval = function(params)
     -- Clamp RNN gradients to prevent exploding gradients
     gradTheta:clamp(-10, 10)
   elseif opt.model == 'VAE' then
-    local encoder = Model.encoder
-
     -- Optimise Gaussian KL divergence between inference model and prior: DKL[q(z|x)||N(0, σI)] = log(σ2/σ1) + ((σ1^2 - σ2^2) + (μ1 - μ2)^2) / 2σ2^2
     local nElements = xHat:nElement()
-    local mean, logVar = table.unpack(encoder.output)
+    local mean, logVar = table.unpack(Model.encoder.output)
     local var = torch.exp(logVar)
     local KLLoss = 0.5 * torch.sum(torch.pow(mean, 2) + var - logVar - 1)
     KLLoss = KLLoss / nElements -- Normalise loss (same normalisation as BCECriterion)
     loss = loss + KLLoss
     local gradKLLoss = {mean / nElements, 0.5*(var - 1) / nElements}  -- Normalise gradient of loss (same normalisation as BCECriterion)
-    encoder:backward(x, gradKLLoss)
+    Model.encoder:backward(x, gradKLLoss)
   elseif opt.model == 'CatVAE' then
-    local encoder = Model.encoder
-
     -- Optimise KL divergence between inference model and prior
     local nElements = xHat:nElement()
-    local z = softmax:forward(encoder.output:view(-1, Model.k)) + 1e-9 -- Improve numerical stability
+    local z = softmax:forward(Model.encoder.output:view(-1, Model.k)) + 1e-9 -- Improve numerical stability
     local logZ = torch.log(z)
     local KLLoss = torch.sum(z:cmul(logZ - math.log(1 / Model.k)))
     KLLoss = KLLoss / nElements -- Normalise loss (same normalisation as BCECriterion)
-    local gradKLLoss = softmax:backward(encoder.output:view(-1, Model.k), math.log(1 / Model.k) - logZ - 1):view(-1, Model.N * Model.k)
+    local gradKLLoss = softmax:backward(Model.encoder.output:view(-1, Model.k), math.log(1 / Model.k) - logZ - 1):view(-1, Model.N * Model.k)
     gradKLLoss = gradKLLoss / nElements -- Normalise gradient of loss (same normalisation as BCECriterion)
     loss = loss + KLLoss
-    encoder:backward(x, gradKLLoss)
+    Model.encoder:backward(x, gradKLLoss)
     
     -- Anneal temperature τ
     Model.tau = math.max(Model.tau - 0.0002, 0.5)
     Model.temperature.constant_scalar = 1 / Model.tau
   elseif opt.model == 'AAE' then
-    local encoder = Model.encoder
     local real = torch.Tensor(opt.batchSize, Model.zSize):normal(0, 1):typeAs(XTrain) -- Real samples ~ N(0, 1)
     local YReal = torch.ones(opt.batchSize):typeAs(XTrain) -- Labels for real samples
     local YFake = torch.zeros(opt.batchSize):typeAs(XTrain) -- Labels for generated samples
@@ -146,18 +141,18 @@ local feval = function(params)
     adversary:backward(real, gradRealLoss)
 
     -- Train adversary to minimise log probability of fake samples: max_D log(1 - D(G(x)))
-    pred = adversary:forward(encoder.output)
+    pred = adversary:forward(Model.encoder.output)
     local fakeLoss = criterion:forward(pred, YFake)
     advLoss = realLoss + fakeLoss
     local gradFakeLoss = criterion:backward(pred, YFake)
-    local gradFake = adversary:backward(encoder.output, gradFakeLoss)
+    local gradFake = adversary:backward(Model.encoder.output, gradFakeLoss)
 
     -- Train encoder (generator) to play a minimax game with the adversary (discriminator): min_G max_D log(1 - D(G(x)))
     local minimaxLoss = criterion:forward(pred, YReal) -- Technically use max_G max_D log(D(G(x))) for same fixed point, stronger initial gradients
     loss = loss + minimaxLoss
     local gradMinimaxLoss = criterion:backward(pred, YReal)
-    local gradMinimax = adversary:updateGradInput(encoder.output, gradMinimaxLoss) -- Do not calculate gradient wrt adversary parameters
-    encoder:backward(x, gradMinimax)
+    local gradMinimax = adversary:updateGradInput(Model.encoder.output, gradMinimaxLoss) -- Do not calculate gradient wrt adversary parameters
+    Model.encoder:backward(x, gradMinimax)
   end
 
   return loss, gradTheta
@@ -215,7 +210,6 @@ local xHat
 if opt.model == 'DenoisingAE' then
   -- Normally this should be switched to evaluation mode, but this lets us extract the noised version
   xHat = autoencoder:forward(x)
-
   -- Extract noised version from denoising AE
   x = Model.noiser.output
 else
@@ -228,7 +222,6 @@ image.save('Reconstructions.png', torch.cat(image.toDisplayTensor(x, 2, 10), ima
 
 if opt.model == 'VAE' or opt.model == 'AAE' then
   -- Plot interpolations
-  local decoder = Model.decoder
   local height, width = XTest:size(2), XTest:size(3)
   local interpolations = torch.Tensor(15 * height, 15 * width):typeAs(XTest)
   local step = 0.05 -- Use small steps in dense region of 2D Gaussian; TODO: Move to spherical interpolation?
@@ -237,21 +230,21 @@ if opt.model == 'VAE' or opt.model == 'AAE' then
   for i = 1, 15  do
     for j = 1, 15 do
       local sample = torch.Tensor({2 * i * step - 16 * step, 2 * j * step - 16 * step}):typeAs(XTest):view(1, 2) -- Minibatch of 1 for batch normalisation
-      interpolations[{{(i-1) * height + 1, i * height}, {(j-1) * width + 1, j * width}}] = decoder:forward(sample)
+      interpolations[{{(i-1) * height + 1, i * height}, {(j-1) * width + 1, j * width}}] = Model.decoder:forward(sample)
     end
   end
   image.save('Interpolations.png', interpolations)
 
   -- Plot samples
-  local output = decoder:forward(torch.Tensor(15 * 15, 2):normal(0, opt.sampleStd):typeAs(XTest)):clone()
+  local output = Model.decoder:forward(torch.Tensor(15 * 15, 2):normal(0, opt.sampleStd):typeAs(XTest)):clone()
   
   -- Perform MCMC sampling
   for m = 0, opt.mcmc do
     -- Save samples
     if m == 0 then
-      image.save('Samples.png', image.toDisplayTensor(decoder.output, 0, 15))
+      image.save('Samples.png', image.toDisplayTensor(Model.decoder.output, 0, 15))
     else
-      image.save('Samples (MCMC step ' .. m .. ').png', image.toDisplayTensor(decoder.output, 0, 15))
+      image.save('Samples (MCMC step ' .. m .. ').png', image.toDisplayTensor(Model.decoder.output, 0, 15))
     end
 
     -- Forward again
@@ -259,7 +252,6 @@ if opt.model == 'VAE' or opt.model == 'AAE' then
   end
 elseif opt.model == 'CatVAE' then
   -- Plot "interpolations"
-  local decoder = Model.decoder
   local height, width = XTest:size(2), XTest:size(3)
   local interpolations = torch.Tensor(Model.N * height, Model.k * width):typeAs(XTest)
   
@@ -276,15 +268,15 @@ elseif opt.model == 'CatVAE' then
 
   -- Plot samples
   local samples = torch.Tensor(15 * 15 * Model.N, Model.k):bernoulli(1 / Model.k):typeAs(XTest):view(15 * 15, Model.N * Model.k)
-  local output = decoder:forward(samples):clone()
+  local output = Model.decoder:forward(samples):clone()
   
   -- Perform MCMC sampling
   for m = 0, opt.mcmc do
     -- Save samples
     if m == 0 then
-      image.save('Samples.png', image.toDisplayTensor(decoder.output, 0, 15))
+      image.save('Samples.png', image.toDisplayTensor(Model.decoder.output, 0, 15))
     else
-      image.save('Samples (MCMC step ' .. m .. ').png', image.toDisplayTensor(decoder.output, 0, 15))
+      image.save('Samples (MCMC step ' .. m .. ').png', image.toDisplayTensor(Model.decoder.output, 0, 15))
     end
 
     -- Forward again
