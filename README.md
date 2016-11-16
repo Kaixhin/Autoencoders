@@ -13,6 +13,7 @@ This repository is a Torch version of [Building Autoencoders in Keras](http://bl
 - **VAE**: Variational autoencoder
 - **CatVAE**: Categorical variational autoencoder *(bonus)*
 - **AAE**: Adversarial autoencoder *(bonus)*
+- **WTA-AE**: Winner-take-all autoencoder *(bonus)*
 
 Different models can be chosen using `th main.lua -model <modelName>`.
 

@@ -27,7 +27,7 @@ end
 -- Choose model to train
 local cmd = torch.CmdLine()
 cmd:option('-cpu', false, 'CPU only (useful if GPU memory is too low)')
-cmd:option('-model', 'AE', 'Model: AE|SparseAE|DeepAE|ConvAE|UpconvAE|DenoisingAE|Seq2SeqAE|VAE|CatVAE|AAE')
+cmd:option('-model', 'AE', 'Model: AE|SparseAE|DeepAE|ConvAE|UpconvAE|DenoisingAE|Seq2SeqAE|VAE|CatVAE|AAE|WTA-AE')
 cmd:option('-learningRate', 0.001, 'Learning rate')
 cmd:option('-optimiser', 'adam', 'Optimiser')
 cmd:option('-epochs', 10, 'Training epochs')
