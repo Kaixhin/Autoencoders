@@ -28,13 +28,13 @@ end
 local cmd = torch.CmdLine()
 cmd:option('-cpu', false, 'CPU only (useful if GPU memory is too low)')
 cmd:option('-model', 'AE', 'Model: AE|SparseAE|DeepAE|ConvAE|UpconvAE|DenoisingAE|Seq2SeqAE|VAE|CatVAE|AAE|WTA-AE')
-cmd:option('-learningRate', 0.001, 'Learning rate')
+cmd:option('-learningRate', 0.0001, 'Learning rate')
 cmd:option('-optimiser', 'adam', 'Optimiser')
-cmd:option('-epochs', 10, 'Training epochs')
+cmd:option('-epochs', 20, 'Training epochs')
 cmd:option('-mcmc', 0, 'MCMC samples')
 cmd:option('-sampleStd', 1, 'Standard deviation of Gaussian distribution to sample from')
 local opt = cmd:parse(arg)
-opt.batchSize = 150 -- Currently only set up for divisors of N
+opt.batchSize = 60 -- Currently only set up for divisors of N
 if opt.cpu then
   cuda = false
 end
@@ -201,6 +201,9 @@ for epoch = 1, opt.epochs do
   gnuplot.ylabel('Loss')
   gnuplot.xlabel('Batch #')
   gnuplot.plotflush()
+
+  -- Permute data
+  XTrain = XTrain:index(1, torch.randperm(XTrain:size(1)):long())
 end
 
 -- Test
@@ -219,6 +222,11 @@ end
 
 -- Plot reconstructions
 image.save('Reconstructions.png', torch.cat(image.toDisplayTensor(x, 2, 10), image.toDisplayTensor(xHat, 2, 10), 1))
+
+if opt.model == 'AE' or opt.model == 'SparseAE' or opt.model == 'WTA-AE' then
+  -- Plot filters
+  image.save('Weights.png', image.toDisplayTensor(Model.decoder:findModules('nn.Linear')[1].weight:view(x:size(3), x:size(2), Model.features):transpose(1, 3), 1, math.floor(math.sqrt(Model.features))))
+end
 
 if opt.model == 'VAE' or opt.model == 'AAE' then
   -- Plot interpolations
