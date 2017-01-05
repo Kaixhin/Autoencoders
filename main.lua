@@ -6,6 +6,21 @@ local image = require 'image'
 local cuda = pcall(require, 'cutorch') -- Use CUDA if available
 local hasCudnn, cudnn = pcall(require, 'cudnn') -- Use cuDNN if available
 
+-- Command-line options
+local cmd = torch.CmdLine()
+cmd:option('-cpu', false, 'CPU only (useful if GPU memory is too low)')
+cmd:option('-model', 'AE', 'Model: AE|SparseAE|DeepAE|ConvAE|UpconvAE|DenoisingAE|Seq2SeqAE|VAE|CatVAE|AAE|WTA-AE')
+cmd:option('-learningRate', 0.0001, 'Learning rate')
+cmd:option('-optimiser', 'adam', 'Optimiser')
+cmd:option('-epochs', 20, 'Training epochs')
+cmd:option('-mcmc', 0, 'MCMC samples')
+cmd:option('-sampleStd', 1, 'Standard deviation of Gaussian distribution to sample from')
+local opt = cmd:parse(arg)
+opt.batchSize = 60 -- Currently only set up for divisors of N
+if opt.cpu then
+  cuda = false
+end
+
 -- Set up Torch
 print('Setting up')
 torch.setdefaulttensortype('torch.FloatTensor')
@@ -22,21 +37,6 @@ local N = XTrain:size(1)
 if cuda then
   XTrain = XTrain:cuda()
   XTest = XTest:cuda()
-end
-
--- Choose model to train
-local cmd = torch.CmdLine()
-cmd:option('-cpu', false, 'CPU only (useful if GPU memory is too low)')
-cmd:option('-model', 'AE', 'Model: AE|SparseAE|DeepAE|ConvAE|UpconvAE|DenoisingAE|Seq2SeqAE|VAE|CatVAE|AAE|WTA-AE')
-cmd:option('-learningRate', 0.0001, 'Learning rate')
-cmd:option('-optimiser', 'adam', 'Optimiser')
-cmd:option('-epochs', 20, 'Training epochs')
-cmd:option('-mcmc', 0, 'MCMC samples')
-cmd:option('-sampleStd', 1, 'Standard deviation of Gaussian distribution to sample from')
-local opt = cmd:parse(arg)
-opt.batchSize = 60 -- Currently only set up for divisors of N
-if opt.cpu then
-  cuda = false
 end
 
 -- Create model
