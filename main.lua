@@ -5,6 +5,7 @@ local gnuplot = require 'gnuplot'
 local image = require 'image'
 local cuda = pcall(require, 'cutorch') -- Use CUDA if available
 local hasCudnn, cudnn = pcall(require, 'cudnn') -- Use cuDNN if available
+require 'dpnn'
 
 -- Command-line options
 local cmd = torch.CmdLine()
@@ -13,12 +14,16 @@ cmd:option('-model', 'AE', 'Model: AE|SparseAE|DeepAE|ConvAE|UpconvAE|DenoisingA
 cmd:option('-learningRate', 0.0001, 'Learning rate')
 cmd:option('-optimiser', 'adam', 'Optimiser')
 cmd:option('-epochs', 20, 'Training epochs')
+cmd:option('-denoising', false, 'Use denoising criterion')
 cmd:option('-mcmc', 0, 'MCMC samples')
 cmd:option('-sampleStd', 1, 'Standard deviation of Gaussian distribution to sample from')
 local opt = cmd:parse(arg)
 opt.batchSize = 60 -- Currently only set up for divisors of N
 if opt.cpu then
   cuda = false
+end
+if opt.model == 'DenoisingAE' then
+  opt.denoising = false -- Disable "extra" denoising
 end
 
 -- Set up Torch
@@ -42,6 +47,9 @@ end
 -- Create model
 local Model = require ('models/' .. opt.model)
 Model:createAutoencoder(XTrain)
+if opt.denoising then
+  Model.autoencoder:insert(nn.WhiteNoise(0, 0.5), 1) -- Add noise during training
+end
 local autoencoder = Model.autoencoder
 if cuda then
   autoencoder:cuda()
@@ -229,6 +237,10 @@ if opt.model == 'AE' or opt.model == 'SparseAE' or opt.model == 'WTA-AE' then
 end
 
 if opt.model == 'VAE' or opt.model == 'AAE' then
+  if opt.denoising then
+    autoencoder:training() -- Retain corruption process
+  end
+
   -- Plot interpolations
   local height, width = XTest:size(2), XTest:size(3)
   local interpolations = torch.Tensor(15 * height, 15 * width):typeAs(XTest)
@@ -259,6 +271,10 @@ if opt.model == 'VAE' or opt.model == 'AAE' then
     autoencoder:forward(output)
   end
 elseif opt.model == 'CatVAE' then
+  if opt.denoising then
+    autoencoder:training() -- Retain corruption process
+  end
+
   -- Plot "interpolations"
   local height, width = XTest:size(2), XTest:size(3)
   local interpolations = torch.Tensor(Model.N * height, Model.k * width):typeAs(XTest)

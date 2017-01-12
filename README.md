@@ -17,6 +17,8 @@ This repository is a Torch version of [Building Autoencoders in Keras](http://bl
 
 Different models can be chosen using `th main.lua -model <modelName>`.
 
+The *denoising* criterion can be used to replace the standard (autoencoder) *reconstruction* criterion by using the denoising flag. For example, a denoising AAE (DAAE) can be set up using `th main.lua -model AAE -denoising`. The corruption process is additive Gaussian noise *~ N(0, 0.5)*.
+
 MCMC sampling can be used for VAEs, CatVAEs and AAEs with `th main.lua -model <modelName> -mcmc <steps>`. To see the effects of MCMC sampling with this simple setup it is best to choose a large standard deviation, e.g. `-sampleStd 5`, for the Gaussian distribution to draw the initial samples from.
 
 Requirements
