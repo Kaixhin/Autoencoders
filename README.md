@@ -30,6 +30,21 @@ The following luarocks packages are required:
 - dpnn (for DenoisingAE)
 - rnn (for Seq2SeqAE)
 
+
+Citation
+--------
+
+If you find this library useful and would like to cite it, the following would be appropriate:
+
+```
+@misc{Autoencoders,
+  author = {Arulkumaran, Kai},
+  title = {Kaixhin/Autoencoders},
+  url = {https://github.com/Kaixhin/Autoencoders},
+  year = {2016}
+}
+```
+
 References
 ----------
 [1] Vincent, P., Larochelle, H., Bengio, Y., & Manzagol, P. A. (2008, July). Extracting and composing robust features with denoising autoencoders. In *Proceedings of the 25th international conference on Machine learning* (pp. 1096-1103). ACM.  
