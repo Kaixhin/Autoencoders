@@ -1,7 +1,8 @@
 local nn = require 'nn'
 
 local Model = {
-  features = 128
+  features = 128,
+  lambda = 1e-8 -- Contractive penalty
 }
 
 function Model:createAutoencoder(X)
@@ -10,8 +11,9 @@ function Model:createAutoencoder(X)
   -- Create encoder
   self.encoder = nn.Sequential()
   self.encoder:add(nn.View(-1, featureSize))
-  self.encoder:add(nn.Linear(featureSize, self.features))
-  self.encoder:add(nn.ReLU(true))
+  self.hidden = nn.Linear(featureSize, self.features)
+  self.encoder:add(self.hidden)
+  self.encoder:add(nn.Sigmoid(true))
 
   -- Create decoder
   self.decoder = nn.Sequential()
@@ -22,7 +24,6 @@ function Model:createAutoencoder(X)
   -- Create autoencoder
   self.autoencoder = nn.Sequential()
   self.autoencoder:add(self.encoder)
-  self.autoencoder:add(nn.L1Penalty(1e-5)) -- L1 penalty on activations
   self.autoencoder:add(self.decoder)
 end
 

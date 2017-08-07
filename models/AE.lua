@@ -1,7 +1,7 @@
 local nn = require 'nn'
 
 local Model = {
-  features = 32
+  features = 128
 }
 
 function Model:createAutoencoder(X)

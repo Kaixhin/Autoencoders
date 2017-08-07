@@ -10,7 +10,7 @@ require 'dpnn'
 -- Command-line options
 local cmd = torch.CmdLine()
 cmd:option('-cpu', false, 'CPU only (useful if GPU memory is too low)')
-cmd:option('-model', 'AE', 'Model: AE|SparseAE|DeepAE|ConvAE|UpconvAE|DenoisingAE|Seq2SeqAE|VAE|CatVAE|AAE|WTA-AE')
+cmd:option('-model', 'AE', 'Model: AE|SparseAE|DeepAE|ConvAE|UpconvAE|DenoisingAE|CAE|Seq2SeqAE|VAE|CatVAE|AAE|WTA-AE')
 cmd:option('-learningRate', 0.0001, 'Learning rate')
 cmd:option('-optimiser', 'adam', 'Optimiser')
 cmd:option('-epochs', 20, 'Training epochs')
@@ -109,7 +109,14 @@ local feval = function(params)
   autoencoder:backward(x, gradLoss)
 
   -- Regularization phase
-  if opt.model == 'Seq2SeqAE' then
+  if opt.model == 'CAE' then
+    -- Penalise Fronbenius norm of encoder Jacobian
+    local hiddenWeights = torch.permute(Model.hidden.weight, 1, 2)
+    local gradHidden = torch.cmul(Model.encoder.output, (1 - Model.encoder.output))  -- Calculate gradient wrt sigmoid activation
+    local jacobian = gradHidden:pow(2) * torch.pow(Model.hidden.weight, 2)
+    Model.hidden:backward(x, Model.lambda * jacobian)
+    loss = loss + Model.lambda * torch.sum(jacobian)
+  elseif opt.model == 'Seq2SeqAE' then
     -- Clamp RNN gradients to prevent exploding gradients
     gradTheta:clamp(-10, 10)
   elseif opt.model == 'VAE' then
@@ -231,7 +238,7 @@ end
 -- Plot reconstructions
 image.save('Reconstructions.png', torch.cat(image.toDisplayTensor(x, 2, 10), image.toDisplayTensor(xHat, 2, 10), 1))
 
-if opt.model == 'AE' or opt.model == 'SparseAE' or opt.model == 'WTA-AE' then
+if opt.model == 'AE' or opt.model == 'SparseAE' or opt.model == 'CAE' or opt.model == 'WTA-AE' then
   -- Plot filters
   image.save('Weights.png', image.toDisplayTensor(Model.decoder:findModules('nn.Linear')[1].weight:view(x:size(3), x:size(2), Model.features):transpose(1, 3), 1, math.floor(math.sqrt(Model.features))))
 end
