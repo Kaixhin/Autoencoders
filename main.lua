@@ -136,7 +136,7 @@ local feval = function(params)
     local logZ = torch.log(z)
     local KLLoss = torch.sum(z:cmul(logZ - math.log(1 / Model.k)))
     KLLoss = KLLoss / nElements -- Normalise loss (same normalisation as BCECriterion)
-    local gradKLLoss = softmax:backward(Model.encoder.output:view(-1, Model.k), math.log(1 / Model.k) - logZ - 1):view(-1, Model.N * Model.k)
+    local gradKLLoss = softmax:backward(Model.encoder.output:view(-1, Model.k), logZ + 1 - math.log(1 / Model.k)):view(-1, Model.N * Model.k)
     gradKLLoss = gradKLLoss / nElements -- Normalise gradient of loss (same normalisation as BCECriterion)
     loss = loss + KLLoss
     Model.encoder:backward(x, gradKLLoss)
